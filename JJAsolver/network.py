@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 class network:
     def __init__(self, Nx, Ny, *, cpr_x, cpr_y, free_energy_x, free_energy_y):
@@ -34,9 +35,9 @@ class network:
         j = I / Ny # current per junction
 
         # find solution cpr_x(gamma) = j by linear fitting of cpr
-        j0 = cpr_x(0)
+        j0 = self.cpr_x(0)
         delta = 0.01 * np.pi
-        cpr_prime = (cpr_x(delta) - j0) / delta
+        cpr_prime = (self.cpr_x(delta) - j0) / delta
         gamma = (j -j0) / cpr_prime
 
         phi = np.linspace(gamma, Nx * gamma, Nx)
@@ -47,22 +48,67 @@ class network:
         self.phi_r += phi_r
 
     def add_vortex(self, x0, y0, vorticity=1):
-        return 0
+        self.phi_matrix += np.arctan2(y0 - self.island_y_coords,
+                                      x0 - self.island_x_coords)
+        self.phi_r += np.pi
 
-    def get_current(self):
-        return 0
 
+    def get_gamma_matrices(self):
+        Nx = self.Nx
+        Ny = self.Ny
+        gamma_x = np.zeros((Nx + 1, Ny))
+        gamma_y = np.zeros((Nx, Ny - 1))
+        
+        gamma_x += self.A_x
+        gamma_y += self.A_y
+
+        phi_matrix = self.phi_matrix
+        gamma_x[1:-1,:] += phi_matrix[1:,:] - phi_matrix[:-1,:]
+        gamma_x[0,:] += phi_matrix[0,:] - self.phi_l
+        gamma_x[-1,:] += self.phi_r - phi_matrix[-1,:]
+        
+        gamma_y += phi_matrix[:,1:] - phi_matrix[:,:-1]
+        return (gamma_x, gamma_y)
+        
+    def get_current_matrices(self):
+        gamma_x, gamma_y = self.get_gamma_matrices()
+        return self.cpr_x(gamma_x), self.cpr_y(gamma_y)
     
+    def get_current(self):
+        I_x, I_y = self.get_current_matrices()
+        return np.sum(I_x[0,:])
     
     def free_energy(self):
-        return 0
+        gamma_x, gamma_y = self.get_gamma_matrices()
+        return np.sum(self.free_energy_x(gamma_x)) + \
+            np.sum(self.free_energy_y(gamma_y))
 
     def plot_phases(self):
         return 0
 
     def plot_currents(self):
-        return 0
+        Nx = self.Nx
+        Ny = self.Ny
+        x_currents, y_currents = self.get_current_matrices()
+        
+        x_current_xcoords, x_current_ycoords = np.meshgrid(np.arange(Nx+1), np.arange(Ny), indexing="ij")
+        x_current_xcoords = x_current_xcoords.astype('float64')
+        x_current_ycoords = x_current_ycoords.astype('float64')
+        x_current_xcoords -= 0.5
+        y_current_xcoords, y_current_ycoords = np.meshgrid(np.arange(Nx), np.arange(Ny-1), indexing="ij")
+        y_current_xcoords = y_current_xcoords.astype('float64')
+        y_current_ycoords = y_current_ycoords.astype('float64')
+        y_current_ycoords += 0.5
 
+        plt.quiver(x_current_xcoords, x_current_ycoords,
+           x_currents, np.zeros(x_currents.shape),
+           pivot='mid', units='width', scale=2*Nx, width=1/(20*Nx))
+        plt.quiver(y_current_xcoords, y_current_ycoords,
+           np.zeros(y_currents.shape), y_currents,
+           pivot='mid', units='width', scale=2*Nx, width=1/(20*Nx))
+        plt.scatter(self.island_x_coords, self.island_y_coords, marker='s', c='b', s=5)
+    
+        
 
     
     def optimization_step(self):
