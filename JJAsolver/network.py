@@ -1,5 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.optimize
+
+def jj_cpr_ballistic(gamma, tau):
+    return np.sin(gamma) / np.sqrt(1 - tau * np.sin(gamma/2)**2)
+
+def jj_free_energy_ballistic(gamma, tau):
+    return 4 / tau * (1 - np.sqrt(1 - tau * np.sin(gamma/2)**2))
 
 class network:
     def __init__(self, Nx, Ny, *, cpr_x, cpr_y, free_energy_x, free_energy_y):
@@ -17,13 +24,18 @@ class network:
         self.phi_l = 0
         self.set_frustration(0)
         
-
+    def reset_network(self):
+        self.phi_matrix *= 0
+        self.phi_r = 0
+        self.phi_l = 0
+        self.set_frustration(0)
+        
     def set_frustration(self, f):
         Nx = self.Nx
         Ny = self.Ny
-        A_x = np.linspace(0, -(Ny-1) * f, Ny) + Ny/2 * f
+        A_x = np.linspace(0, -(Ny-1) * f, Ny) + (Ny - 1)/2 * f
         A_x = np.tile(A_x, (Nx + 1, 1))
-        A_y = np.linspace(0, (Nx-1) * f, Nx) - Nx/2 * f
+        A_y = np.linspace(0, (Nx-1) * f, Nx) - (Nx-1)/2 * f
         A_y = np.tile(A_y, (Ny - 1, 1)).T
 
         self.A_x = -np.pi * A_x
@@ -34,11 +46,12 @@ class network:
         Ny = self.Ny
         j = I / Ny # current per junction
 
-        # find solution cpr_x(gamma) = j by linear fitting of cpr
-        j0 = self.cpr_x(0)
-        delta = 0.01 * np.pi
-        cpr_prime = (self.cpr_x(delta) - j0) / delta
-        gamma = (j -j0) / cpr_prime
+        def f(x):
+            return self.cpr_x(x) - j
+
+        gamma = scipy.optimize.brentq(f, -np.pi/2, np.pi/2, rtol=1e-6, xtol=1e-6)
+        
+        print("gamma = %g pi" % (gamma/ np.pi))
 
         phi = np.linspace(gamma, Nx * gamma, Nx)
         phi = np.tile(phi, (Ny, 1)).T
@@ -110,7 +123,6 @@ class network:
     
         
 
-    
     def optimization_step(self):
         # minimize free energy f(phi) using Newton's method
         # phi -> phi - ε f'(phi)
@@ -137,17 +149,17 @@ class network:
                 if j > 0:
                     f_prime += cpr_y(phi_i_j - phi_matrix[i,j-1] + A_y[i, j-1])
                 if j < Ny - 1:
-                    f_prime += cpr_y(phi_i_j - phi_matrix[i,j+1] - A_y[i,j])
+                    f_prime += -cpr_y(-phi_i_j + phi_matrix[i,j+1] + A_y[i,j])
 
                 # x-component
                 if i == 0:
                     f_prime += cpr_x(phi_i_j - phi_l + A_x[0, j])
-                    f_prime += cpr_x(phi_i_j - phi_matrix[i+1, j] - A_x[1,j])
+                    f_prime += -cpr_x(-phi_i_j + phi_matrix[i+1, j] + A_x[1,j])
                 elif i == Nx - 1:
-                    f_prime += cpr_x(phi_i_j - phi_r- A_x[i+1, j])
+                    f_prime += -cpr_x(-phi_i_j + phi_r + A_x[i+1, j])
                     f_prime += cpr_x(phi_i_j - phi_matrix[i-1, j] + A_x[i,j])
                 else:
-                    f_prime += cpr_x(phi_i_j - phi_matrix[i+1,j]- A_x[i+1, j])
+                    f_prime += -cpr_x(-phi_i_j + phi_matrix[i+1,j]+ A_x[i+1, j])
                     f_prime += cpr_x(phi_i_j - phi_matrix[i-1, j]+ A_x[i,j])
                     
                 new_phi = phi_i_j - epsilon * f_prime
