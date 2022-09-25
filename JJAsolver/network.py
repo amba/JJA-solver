@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.random
 import matplotlib.pyplot as plt
 import scipy.optimize
 
@@ -29,7 +30,11 @@ class network:
         self.phi_r = 0
         self.phi_l = 0
         self.set_frustration(0)
-        
+
+    def set_random_state(self):
+        self.phi_matrix = 2 * np.pi * numpy.random.rand(self.Nx, self.Ny)
+        self.phi_r = 2 * np.pi * numpy.random.rand()
+        self.phi_l = 2 * np.pi * numpy.random.rand()
     def set_frustration(self, f):
         Nx = self.Nx
         Ny = self.Ny
@@ -97,7 +102,12 @@ class network:
             np.sum(self.free_energy_y(gamma_y))
 
     def plot_phases(self):
-        return 0
+        m = self.phi_matrix.copy()
+        m = np.flip(m, axis=1)
+        m = np.swapaxes(m, 0, 1)
+        plt.imshow(m/np.pi, aspect='equal', cmap='gray')
+        plt.colorbar(format="%.1f", label='φ')
+
 
     def plot_currents(self):
         Nx = self.Nx
@@ -115,10 +125,10 @@ class network:
 
         plt.quiver(x_current_xcoords, x_current_ycoords,
            x_currents, np.zeros(x_currents.shape),
-           pivot='mid', units='width', scale=2*Nx, width=1/(20*Nx))
+           pivot='mid', units='width', scale=5*Nx, width=1/(30*Nx))
         plt.quiver(y_current_xcoords, y_current_ycoords,
            np.zeros(y_currents.shape), y_currents,
-           pivot='mid', units='width', scale=2*Nx, width=1/(20*Nx))
+           pivot='mid', units='width', scale=5*Nx, width=1/(30*Nx))
         plt.scatter(self.island_x_coords, self.island_y_coords, marker='s', c='b', s=5)
     
         

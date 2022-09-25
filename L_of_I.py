@@ -4,29 +4,30 @@ from JJAsolver.network import network, jj_cpr_ballistic, jj_free_energy_ballisti
 
 import numpy as np
 import matplotlib.pyplot as plt
-Nx = 16
-Ny = 16
+Nx = 20
+Ny = 20
 
-tau = 0.999
-cos_term = 0.4
-sin2_term = -0.3
+tau = 0.001
+cos_term = 0
+sin2_term = -0
 
 def cpr_x(gamma):
-    return np.sin(gamma) + sin2_term * np.sin(2*gamma) + cos_term*np.cos(gamma)
-                                              #    return jj_cpr_ballistic(gamma, tau) + cos_term * np.cos(gamma)
+    #return np.sin(gamma) + sin2_term * np.sin(2*gamma) + cos_term*np.cos(gamma)
+    return jj_cpr_ballistic(gamma, tau)
 
                                             
 def cpr_y(gamma):
-    return np.sin(gamma) + sin2_term * np.sin(2*gamma)
+  #  return np.sin(gamma) + sin2_term * np.sin(2*gamma)
+    return jj_cpr_ballistic(gamma, tau)
 
 def f_x(gamma):
-    return 1 -np.cos(gamma) - 0.5 * sin2_term * np.cos(2 * gamma) +\
-        cos_term * np.sin(gamma)
-#    return jj_free_energy_ballistic(gamma, tau) + cos_term * np.sin(gamma)
+#    return 1 -np.cos(gamma) - 0.5 * sin2_term * np.cos(2 * gamma) +\
+#        cos_term * np.sin(gamma)
+    return jj_free_energy_ballistic(gamma, tau)
 
 def f_y(gamma):
-    return 1 -np.cos(gamma) - 0.5 * sin2_term * np.cos(2 * gamma)
- #   return jj_free_energy_ballistic(gamma, tau)
+#    return 1 -np.cos(gamma) - 0.5 * sin2_term * np.cos(2 * gamma)
+    return jj_free_energy_ballistic(gamma, tau)
 
 
 phi_vals = np.linspace(-np.pi, np.pi, 100)
@@ -35,7 +36,7 @@ plt.plot(phi_vals / np.pi, cpr_x(phi_vals))
 plt.plot(phi_vals / np.pi, f_x(phi_vals))
 plt.show()
 
-I_vals = np.linspace(0.15 * Ny, 0.25 * Ny, 501)
+I_vals = (0,)# np.linspace(0,)
 I_meas_vals = []
 F_vortex_vals = []
 
@@ -51,16 +52,25 @@ for sign in (+1, -1):
     last_free_energy = 0
     for I in sign * I_vals:
         n.reset_network()
-        n.add_vortex(0.5 * (Nx - 1), 0.5 * (Nx - 1))
+       # n.add_vortex(0.5 * (Nx - 1), 0.5 * (Nx - 1))
         n.set_current(I)
-        # n.set_frustration(1 / (Nx * Ny))
+        n.set_frustration(f)
+        
         #    last_delta = 1000
-        for i in range(300):
+        for i in range(2000):
             print("I_meas = %g" % (n.get_current(),))
             delta =  n.optimization_step()
             print("I = %g, i = %d, delta = %g" % (I, i, delta))        
-            if abs(delta) < 1e-2:
+            if abs(delta) < 1e-3:
                 break
+        plt.clf()
+        n.plot_phases()
+        plt.show()
+        plt.clf()
+        n.plot_currents()
+        plt.show()
+                          
+                          
         free_energy = n.free_energy()
         I_meas_vals.append(n.get_current())
         F_vortex_vals.append(n.free_energy())
