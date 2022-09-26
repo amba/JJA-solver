@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 
 from JJAsolver.network import network, jj_cpr_ballistic, jj_free_energy_ballistic
-
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 Nx = 16
 Ny = 16
 
 tau = 0.99
-cos_term = 0
-sin2_term = -0
+cos_term = 0#0.3
+sin2_term = 0#-0.3
 
 def cpr_x(gamma):
-    #return np.sin(gamma) + sin2_term * np.sin(2*gamma) + cos_term*np.cos(gamma)
-    return jj_cpr_ballistic(gamma, tau)
+    return np.sin(gamma) + sin2_term * np.sin(2*gamma) + cos_term*np.cos(gamma)
+#    return jj_cpr_ballistic(gamma, tau)
 
                                             
 def cpr_y(gamma):
-  #  return np.sin(gamma) + sin2_term * np.sin(2*gamma)
-    return jj_cpr_ballistic(gamma, tau)
+    return np.sin(gamma) + sin2_term * np.sin(2*gamma)
+   # return jj_cpr_ballistic(gamma, tau)
 
 def f_x(gamma):
-#    return 1 -np.cos(gamma) - 0.5 * sin2_term * np.cos(2 * gamma) +\
-#        cos_term * np.sin(gamma)
-    return jj_free_energy_ballistic(gamma, tau)
+    return 1 -np.cos(gamma) - 0.5 * sin2_term * np.cos(2 * gamma) +\
+        cos_term * np.sin(gamma)
+    #return jj_free_energy_ballistic(gamma, tau)
 
 def f_y(gamma):
-#    return 1 -np.cos(gamma) - 0.5 * sin2_term * np.cos(2 * gamma)
-    return jj_free_energy_ballistic(gamma, tau)
+    return 1 -np.cos(gamma) - 0.5 * sin2_term * np.cos(2 * gamma)
+    #return jj_free_energy_ballistic(gamma, tau)
 
 
 phi_vals = np.linspace(-np.pi, np.pi, 100)
@@ -48,25 +48,52 @@ n = network(
     free_energy_y = f_y,
 )
 
-frustration_vals = np.linspace(0, 0.5, 51)
+for i in range(Nx-1):
+    for j in range(Ny-1):
+        if i % 2  == 0 and j % 2 == 0:
+            n.add_vortex(i + 0.5, j+0.5)
+# n.add_vortex(5 + 0.5, 5 + 0.5)
+# n.add_vortex(6 + 0.5, 6 + 0.5)
+# n.add_vortex(7 + 0.5, 7 + 0.5)
+#n.add_vortex(5 + 0.5, 5 + 0.5)
 F_vals = []
 
-for f in frustration_vals:
-    n.set_random_state()
+# for i in range(Nx):
+#     for j in range(Ny):
+#         if i % 2 == 0 and j % 2 == 0:
+#             n.phi_matrix[i,j] = 0
+#         if i % 2 == 0 and j % 2 == 1:
+#             n.phi_matrix[i,j] = -np.pi/2
+#         if i % 2 == 1 and j % 2 == 0:
+#             n.phi_matrix[i,j] = np.pi/2
+#         if i % 2 == 1 and j % 2 == 1:
+#             n.phi_matrix[i,j] = np.pi
+
+f = 1.0 / 4
+I_vals = []
+n.set_frustration(f)
+n.plot_currents()
+print("current = ", n.get_current())
+plt.show()
+for x in range(50):
+#    m = copy.deepcopy(n)
     #n.add_vortex(0.5 * (Nx - 1), 0.5 * (Nx - 1))
-    #n.set_current(I)
-    n.set_frustration(f)
-    for i in range(20000):
+    n.set_current(0.1)
+    for i in range(1000):
         delta =  n.optimization_step()
         print("f = %g, i = %d, delta = %g" % (f, i, delta))        
         if abs(delta) < 1e-2:
             break
-    plt.clf()
-    n.plot_currents()
-    plt.show()
-    F_vals.append(n.free_energy())
-
-plt.plot(frustration_vals, F_vals)
+    F = n.free_energy()
+    I = n.get_current()
+    print("F = ", F)
+    print("I = ", I)
+   # n.plot_currents()
+  #  plt.show()
+    F_vals.append(F)
+    I_vals.append(I)
+    
+plt.plot(I_vals, F_vals, 'x')
 plt.show()
         
 
@@ -85,10 +112,8 @@ plt.show()
 #             print("I = %g, i = %d, delta = %g" % (I, i, delta))        
 #             if abs(delta) < 1e-3:
 #                 break
-#         plt.clf()
 #         n.plot_phases()
 #         plt.show()
-#         plt.clf()
 #         n.plot_currents()
 #         plt.show()
                           

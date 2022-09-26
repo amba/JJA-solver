@@ -35,6 +35,7 @@ class network:
         self.phi_matrix = 2 * np.pi * numpy.random.rand(self.Nx, self.Ny)
         self.phi_r = 2 * np.pi * numpy.random.rand()
         self.phi_l = 2 * np.pi * numpy.random.rand()
+        
     def set_frustration(self, f):
         Nx = self.Nx
         Ny = self.Ny
@@ -102,6 +103,7 @@ class network:
             np.sum(self.free_energy_y(gamma_y))
 
     def plot_phases(self):
+        plt.clf()
         m = self.phi_matrix.copy()
         m = np.flip(m, axis=1)
         m = np.swapaxes(m, 0, 1)
@@ -122,7 +124,7 @@ class network:
         y_current_xcoords = y_current_xcoords.astype('float64')
         y_current_ycoords = y_current_ycoords.astype('float64')
         y_current_ycoords += 0.5
-
+        plt.clf()
         plt.quiver(x_current_xcoords, x_current_ycoords,
            x_currents, np.zeros(x_currents.shape),
            pivot='mid', units='width', scale=5*Nx, width=1/(30*Nx))
