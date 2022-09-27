@@ -69,17 +69,13 @@ F_vals = []
 #         if i % 2 == 1 and j % 2 == 1:
 #             n.phi_matrix[i,j] = np.pi
 
-f = 0.014
 I_vals = []
-T_vals = (0.35,)
-n.set_frustration(f)
-# n.plot_currents()
-# print("current = ", n.get_current())
-# plt.show()
-for T_start in T_vals:
-#    n.set_current(0.05 * Ny)
-    #n.add_vortex(8.5, 8.5)
-    N_max = 2000
+f_vals = np.linspace(0, 0.5, 51)
+T_start = 0.35
+for f in f_vals:
+    n.reset_network()
+    n.set_frustration(f)
+    N_max = 1000
     for i in range(N_max + 200):
         temp = max(T_start * (N_max - i) / N_max, 0)
         delta =  n.optimization_step(temp = temp)
@@ -98,10 +94,8 @@ for T_start in T_vals:
     print("I = ", I)
     F_vals.append(F)
     I_vals.append(I)
-    n.plot_currents()
-    plt.show()
 
-plt.plot(T_vals, F_vals, 'x')
+plt.plot(f_vals, F_vals, 'x')
 plt.show()
         
 

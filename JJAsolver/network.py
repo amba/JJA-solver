@@ -20,19 +20,19 @@ class network:
 
         
         self.island_x_coords, self.island_y_coords = np.meshgrid(np.arange(Nx), np.arange(Ny), indexing="ij")
-        self.phi_matrix = np.zeros((Nx, Ny))
-        self.phi_r = 0
-        self.phi_l = 0
+        self.phi_matrix = np.zeros((Nx, Ny), dtype=np.float32)
+        self.phi_r = np.float32(0)
+        self.phi_l = np.float32(0)
         self.set_frustration(0)
         
     def reset_network(self):
         self.phi_matrix *= 0
-        self.phi_r = 0
-        self.phi_l = 0
+        self.phi_r *= 0
+        self.phi_l *= 0
         self.set_frustration(0)
 
     def set_random_state(self):
-        self.phi_matrix = 2 * np.pi * numpy.random.rand(self.Nx, self.Ny)
+        self.phi_matrix = np.float32(2 * np.pi * numpy.random.rand(self.Nx, self.Ny))
         self.phi_r = 2 * np.pi * numpy.random.rand()
         self.phi_l = 2 * np.pi * numpy.random.rand()
         
@@ -44,8 +44,8 @@ class network:
         A_y = np.linspace(0, (Nx-1) * f, Nx) - (Nx-1)/2 * f
         A_y = np.tile(A_y, (Ny - 1, 1)).T
 
-        self.A_x = -np.pi * A_x
-        self.A_y = -np.pi * A_y
+        self.A_x = np.float32(-np.pi * A_x)
+        self.A_y = np.float32(-np.pi * A_y)
 
     def set_current(self, I):
         Nx = self.Nx
