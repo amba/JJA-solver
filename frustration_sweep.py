@@ -30,11 +30,11 @@ def f_y(gamma):
     #return jj_free_energy_ballistic(gamma, tau)
 
 
-phi_vals = np.linspace(-np.pi, np.pi, 100)
-plt.grid()
-plt.plot(phi_vals / np.pi, cpr_x(phi_vals))
-plt.plot(phi_vals / np.pi, f_x(phi_vals))
-plt.show()
+# phi_vals = np.linspace(-np.pi, np.pi, 100)
+# plt.grid()
+# plt.plot(phi_vals / np.pi, cpr_x(phi_vals))
+# plt.plot(phi_vals / np.pi, f_x(phi_vals))
+# plt.show()
 
 I_vals = (0,)# np.linspace(0,)
 I_meas_vals = []
@@ -69,31 +69,39 @@ F_vals = []
 #         if i % 2 == 1 and j % 2 == 1:
 #             n.phi_matrix[i,j] = np.pi
 
-f = 1.0 / 4
+f = 0.014
 I_vals = []
+T_vals = (0.35,)
 n.set_frustration(f)
-n.plot_currents()
-print("current = ", n.get_current())
-plt.show()
-for x in range(50):
-#    m = copy.deepcopy(n)
-    #n.add_vortex(0.5 * (Nx - 1), 0.5 * (Nx - 1))
-    n.set_current(0.1)
-    for i in range(1000):
-        delta =  n.optimization_step()
+# n.plot_currents()
+# print("current = ", n.get_current())
+# plt.show()
+for T_start in T_vals:
+#    n.set_current(0.05 * Ny)
+    #n.add_vortex(8.5, 8.5)
+    N_max = 2000
+    for i in range(N_max + 200):
+        temp = max(T_start * (N_max - i) / N_max, 0)
+        delta =  n.optimization_step(temp = temp)
+        print("T = ", temp)
+        I = n.get_current()
+        print("I = ", I)
         print("f = %g, i = %d, delta = %g" % (f, i, delta))        
         if abs(delta) < 1e-2:
             break
+        # if i % 100 == 0:
+        #     n.plot_currents()
+        #     plt.show()
     F = n.free_energy()
     I = n.get_current()
     print("F = ", F)
     print("I = ", I)
-   # n.plot_currents()
-  #  plt.show()
     F_vals.append(F)
     I_vals.append(I)
-    
-plt.plot(I_vals, F_vals, 'x')
+    n.plot_currents()
+    plt.show()
+
+plt.plot(T_vals, F_vals, 'x')
 plt.show()
         
 

@@ -135,7 +135,7 @@ class network:
     
         
 
-    def optimization_step(self):
+    def optimization_step(self, temp=0):
         # minimize free energy f(phi) using Newton's method
         # phi -> phi - ε f'(phi)
         
@@ -175,6 +175,8 @@ class network:
                     f_prime += cpr_x(phi_i_j - phi_matrix[i-1, j]+ A_x[i,j])
                     
                 new_phi = phi_i_j - epsilon * f_prime
+                if temp > 0:
+                    new_phi += temp * numpy.random.randn()
                 phi_matrix[i, j] = new_phi
                 delta_phi += np.abs(phi_i_j- new_phi)
         return delta_phi
