@@ -135,16 +135,15 @@ class network:
     
         
 
-    def optimization_step(self, temp=0):
-        # minimize free energy f(phi) using Newton's method
+    def optimization_step(self, optimize_leads=False, temp=0):
+        # minimize free energy f(phi) using gradient descent
+        # update all phi's in-place
         # phi -> phi - ε f'(phi)
         
         Nx = self.Nx
         Ny = self.Ny
         phi_matrix = self.phi_matrix
-        phi_l = self.phi_l
-        phi_r = self.phi_r
-        
+
         A_x = self.A_x
         A_y = self.A_y
         cpr_x = self.cpr_x
@@ -165,10 +164,10 @@ class network:
 
                 # x-component
                 if i == 0:
-                    f_prime += cpr_x(phi_i_j - phi_l + A_x[0, j])
+                    f_prime += cpr_x(phi_i_j - self.phi_l + A_x[0, j])
                     f_prime += -cpr_x(-phi_i_j + phi_matrix[i+1, j] + A_x[1,j])
                 elif i == Nx - 1:
-                    f_prime += -cpr_x(-phi_i_j + phi_r + A_x[i+1, j])
+                    f_prime += -cpr_x(-phi_i_j + self.phi_r + A_x[i+1, j])
                     f_prime += cpr_x(phi_i_j - phi_matrix[i-1, j] + A_x[i,j])
                 else:
                     f_prime += -cpr_x(-phi_i_j + phi_matrix[i+1,j]+ A_x[i+1, j])
@@ -179,5 +178,27 @@ class network:
                     new_phi += temp * numpy.random.randn()
                 phi_matrix[i, j] = new_phi
                 delta_phi += np.abs(phi_i_j- new_phi)
+        if optimize_leads:
+            # left lead
+            f_prime = 0
+            for j in range(Ny):
+                f_prime += -cpr_x(-self.phi_l + phi_matrix[0, j] + A_x[0,j])
+            new_phi = self.phi_l - (4 * epsilon / Ny) * f_prime
+            if temp > 0:
+                new_phi += temp * numpy.random.randn()
+            delta_phi += np.abs(new_phi - self.phi_l)
+            self.phi_l = new_phi
+            
+
+            # right lead
+            f_prime = 0
+            for j in range(Ny):
+                f_prime += self.cpr_x(self.phi_r - phi_matrix[-1, j] + A_x[-1,j])
+            new_phi = self.phi_r - (4 * epsilon / Ny) * f_prime
+            if temp > 0:
+                new_phi += temp * numpy.random.randn()
+            delta_phi += np.abs(new_phi - self.phi_r)
+            self.phi_r = new_phi
+
         return delta_phi
 
