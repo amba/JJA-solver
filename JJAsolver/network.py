@@ -66,6 +66,14 @@ class network:
         self.phi_matrix += phi
         self.phi_r += phi_r
 
+    def add_phase_gradient(self, d_phi):
+        # keep phi_l constant
+        for i in range(self.Nx):
+            for j in range(self.Ny):
+                self.phi_matrix[i,j] += d_phi * (i + 1)
+        
+        self.phi_r += d_phi * (self.Nx + 1)
+        
     def add_vortex(self, x0, y0, vorticity=1):
         self.phi_matrix += np.arctan2(y0 - self.island_y_coords,
                                       x0 - self.island_x_coords)
@@ -201,4 +209,22 @@ class network:
             self.phi_r = new_phi
 
         return delta_phi
-
+    
+    def find_ground_state(self, T_start=0.35, N_max=5000, delta_tol=1e-2,
+                          optimize_leads=True):
+        # annealing schedule
+        for i in range(N_max):
+            temp = T_start * (N_max - i) / N_max
+            self.optimization_step(temp=temp, optimize_leads=optimize_leads)
+        # converge
+        for i in range(1000):
+            delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
+            if delta < delta_tol:
+                break
+        return self
+    def optimize(self, delta_tol=1e-2, optimize_leads=False):
+        for i in range(1000):
+            delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
+            if delta < delta_tol:
+                break
+        return delta

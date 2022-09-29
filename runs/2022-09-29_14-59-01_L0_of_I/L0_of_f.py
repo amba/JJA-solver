@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import sys
 import os
 sys.path.append(os.getcwd() + '/..')
@@ -13,9 +14,16 @@ import time
 Nx = 16
 Ny = 16
 
-data = datafile(
-    params = ['Nx', 'Ny', 'N_max', 'T_start', 'frustration', 'free_energy', 'current'],
-    folder = 'N_max_frustration_test'
+data_L0 = datafile(
+    file = 'data_L0.dat',
+    params = ['Nx', 'Ny', 'frustration', 'free_energy', 'L0', 'current'],
+    folder = 'L0_of_I'
+)
+
+data_L_of_I = datafile(
+    file = 'data_L_of_I.dat',
+    params = ['Nx', 'Ny', 'frustration', 'I', 'free_energy'],
+    folder = 'L0_of_I'
 )
 
 def cpr_x(gamma):
@@ -38,6 +46,7 @@ def f_y(gamma):
 
 
 
+
 n = network(
     Nx, Ny,
     cpr_x=cpr_x,
@@ -47,35 +56,37 @@ n = network(
 )
 
 
-frustration_vals = np.linspace(0, 0.5, 101)
-#N_max_vals = (100, 500, 1000, 5000, 10000)
-T_start_vals = (0.3, 0.35, 0.4)
-t0 = time.time()
-N_max = 5000
-for T_start in T_start_vals:
-    for f in frustration_vals:
-        n.reset_network()
-        n.set_frustration(f)
-        for i in range(int(N_max) + 200):
-            temp = max(T_start * (N_max - i) / N_max, 0)
-            delta =  n.optimization_step(temp = temp, optimize_leads=True)
-            print("T = ", temp)
-            I = n.get_current()
-            print("I = ", I)
-            print("f = %g, i = %d, delta = %g" % (f, i, delta))        
-            if abs(delta) < 1e-2:
-                break
-        t1 = time.time() - t0
-        F = n.free_energy()
+frustration_vals = (0, 0.1,)
+d_phi = 0.001
+
+for f in frustration_vals:
+    n.reset_network()
+    n.set_frustration(f)
+    n = n.find_ground_state()
+    print("f = ", f)
+    print("free energy = ", n.free_energy())
+    
+    I_vals = []
+    F_vals = []
+    
+    for i in range(20):
+        n.add_phase_gradient(d_phi)
+        n.optimize(optimize_leads=False)
         I = n.get_current()
-        data.log(
+        print("I = ", I)
+        F = n.free_energy()
+        print("F = ", F)
+        data_L_of_I.log(
             {'Nx': Nx,
-            'Ny': Ny,
-            'N_max': N_max,
-             'T_start': T_start,
-            'frustration': f,
-            'free_energy': F,
-            'current': I,}
-            )
-    data.new_block()
+             'Ny': Ny,
+             'frustration': f,
+             'I': I,
+             'free_energy': F
+             }
+        )
+        I_vals.append(I)
+        F_vals.append(F)
+    
             
+    
+

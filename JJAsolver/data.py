@@ -6,38 +6,52 @@ import os.path
 import sys
 import json
 
-class datafile:
+class datafolder:
     def __init__(
             self,
-            file : str = "data.dat",
-            params = [],
-            folder : str = "",
-            number_format = '%.10g',
-            number_delimiter = "\t\t",
+            folder,
             args={}
     ):
-        self.number_format = number_format
-        self.number_delimiter = number_delimiter
-        
         # make new datafolder
         date_string = datetime.now()
         data_folder = date_string.strftime("%Y-%m-%d_%H-%M-%S")
         
-        if folder:
-            data_folder = data_folder + "_" + folder
+        data_folder = data_folder + "_" + folder
 
+        self.folder = data_folder
         print("creating new datafolder: ", data_folder)
         pathlib.Path(data_folder).mkdir()
         script = sys.argv[0]
         print("script: ", script)
+        
         # copy script into
         # copy script into output folder
-        
         shutil.copyfile(script, data_folder + '/' + os.path.basename(script))
+                
+        # generate metadata file
+        # copy script args into metadata
 
+        with open(data_folder + '/args.json', 'w') as outfile:
+            json.dump(args, outfile)
+        
+
+class datafile:
+    def __init__(
+            self, folder,
+            file : str = "data.dat",
+            params = [],
+            number_format = '%.10g',
+            number_delimiter = "\t\t",
+           
+    ):
+        self.number_format = number_format
+        self.number_delimiter = number_delimiter
+        
+
+        
 
         # generate datafile
-        data_filename = data_folder + "/" + file
+        data_filename = folder.folder + "/" + file
         self.datafile = open(data_filename, "w")
         self.params = params
 
@@ -47,13 +61,7 @@ class datafile:
 
         self.datafile.flush()
         os.fsync(self.datafile)
-        
-        # generate metadata file
-        # copy script args into metadata
 
-        with open(data_folder + '/args.json', 'w') as outfile:
-            json.dump(args, outfile)
-        
         
     def log(self, params={}):
         number_format = self.number_format
