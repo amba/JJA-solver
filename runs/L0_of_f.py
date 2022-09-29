@@ -57,7 +57,7 @@ n = network(
 )
 
 
-frustration_vals = np.linspace(0, 0.3, 51)
+frustration_vals = np.linspace(0, 0.5, 11)
 d_phi = 0.001
 
 for f in frustration_vals:
@@ -70,24 +70,26 @@ for f in frustration_vals:
     
     I_vals = [n.get_current(),]
     F_vals = [n.free_energy(),]
-    
-    for i in range(20):
-        n.add_phase_gradient(d_phi)
-        n.optimize(optimize_leads=False)
-        I = n.get_current()
-        print("I = ", I)
-        F = n.free_energy()
-        print("F = ", F)
-        data_L_of_I.log(
-            {'Nx': Nx,
-             'Ny': Ny,
-             'frustration': f,
-             'I': I,
-             'free_energy': F
-             }
-        )
-        I_vals.append(I)
-        F_vals.append(F)
+    for sign in (+1, -1):
+        m = copy.deepcopy(n)
+        for i in range(20):
+            m.optimize(optimize_leads=False, delta_tol=1e-3)
+            I = m.get_current()
+            print("I = ", I)
+            F = m.free_energy()
+            print("F = ", F)
+            data_L_of_I.log(
+                {'Nx': Nx,
+                 'Ny': Ny,
+                 'frustration': f,
+                 'I': I,
+                 'free_energy': F
+                 }
+            )
+            I_vals.append(I)
+            F_vals.append(F)
+            m.add_phase_gradient(sign * d_phi)
+
     p = np.polyfit(I_vals, F_vals, 2)
     L0 = p[0]
     F0 = p[2]
