@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-
+import sys
+import os
+sys.path.append(os.getcwd() + '/..')
 from JJAsolver.network import network, jj_cpr_ballistic, jj_free_energy_ballistic
 from JJAsolver.data import datafile
 
