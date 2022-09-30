@@ -157,7 +157,7 @@ class network:
         cpr_x = self.cpr_x
         cpr_y = self.cpr_y
 
-        epsilon = 0.5
+        epsilon = 0.25
         delta_phi = 0
 
         for i in range(Nx):
@@ -215,16 +215,18 @@ class network:
         # annealing schedule
         for i in range(N_max):
             temp = T_start * (N_max - i) / N_max
-            self.optimization_step(temp=temp, optimize_leads=optimize_leads)
+            print("i = ", i, ", delta = ", self.optimization_step(temp=temp, optimize_leads=optimize_leads))
         # converge
         for i in range(1000):
             delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
+            print("delta = ", delta)
             if delta < delta_tol:
                 break
         return self
-    def optimize(self, delta_tol=1e-2, optimize_leads=False):
-        for i in range(1000):
+    def optimize(self, maxiter=1000, delta_tol=1e-2, optimize_leads=False):
+        for i in range(maxiter):
             delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
+            print("i = ", i, ", delta = ", delta)
             if delta < delta_tol:
                 break
         return delta
