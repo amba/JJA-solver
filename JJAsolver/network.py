@@ -9,6 +9,12 @@ def jj_cpr_ballistic(gamma, tau):
 def jj_free_energy_ballistic(gamma, tau):
     return 4 / tau * (1 - np.sqrt(1 - tau * np.sin(gamma/2)**2))
 
+# d/dγ I(γ)
+def jj_diff_ballistic(gamma, tau):
+    nom_vals = 1 - tau * np.sin(gamma / 2)**2
+    return 1/4 * tau * np.sin(gamma)**2 / (nom_vals)**(3/2) + \
+        np.cos(gamma) / np.sqrt(nom_vals)
+
 class network:
     def __init__(self, Nx, Ny, *, cpr_x, cpr_y, free_energy_x, free_energy_y):
         self.Nx = Nx
@@ -17,6 +23,8 @@ class network:
         self.cpr_y = cpr_y
         self.free_energy_x = free_energy_x
         self.free_energy_y = free_energy_y
+        # self.diff_x = diff_x
+        # self.diff_y = diff_y
 
         
         self.island_x_coords, self.island_y_coords = np.meshgrid(np.arange(Nx), np.arange(Ny), indexing="ij")
@@ -141,9 +149,75 @@ class network:
            pivot='mid', units='width', scale=5*Nx, width=1/(30*Nx))
         plt.scatter(self.island_x_coords, self.island_y_coords, marker='s', c='b', s=5)
     
-        
 
-    def optimization_step(self, optimize_leads=False, temp=0):
+    # do not use newton solver? simple gradient descent seems to converge
+    # with similar speed when using an optimized ε parameter
+    def optimization_step_newton(self):
+        # phi -> phi - cpr(phi) / cpr'(phi)
+        
+        Nx = self.Nx
+        Ny = self.Ny
+        phi_matrix = self.phi_matrix
+
+        A_x = self.A_x
+        A_y = self.A_y
+        cpr_x = self.cpr_x
+        cpr_y = self.cpr_y
+        diff_x = self.diff_x
+        diff_y = self.diff_y
+        
+        delta_phi = 0
+
+        for i in range(Nx):
+            for j in range(Ny):
+                I_prime = 0
+                I = 0
+                phi_i_j = phi_matrix[i,j]
+                # y-component
+                if j > 0:
+                    gamma = phi_i_j - phi_matrix[i,j-1] + A_y[i, j-1]
+                    I += cpr_y(gamma)
+                    I_prime += diff_y(gamma)
+                if j < Ny - 1:
+                    gamma = -phi_i_j + phi_matrix[i,j+1] + A_y[i,j]
+                    I += -cpr_y(gamma)
+                    I_prime += diff_y(gamma)
+                # x-component
+                if i == 0:
+                    gamma = phi_i_j - self.phi_l + A_x[0, j]
+                    I += cpr_x(gamma)
+                    I_prime += diff_x(gamma)
+
+                    gamma = -phi_i_j + phi_matrix[i+1, j] + A_x[1,j]
+                    I += -cpr_x(gamma)
+                    I_prime += diff_x(gamma)
+                    
+                elif i == Nx - 1:
+                    gamma = -phi_i_j + self.phi_r + A_x[i+1, j]
+                    I += -cpr_x(gamma)
+                    I_prime += diff_x(gamma)
+
+                    gamma = phi_i_j - phi_matrix[i-1, j] + A_x[i,j]
+                    I += cpr_x(gamma)
+                    I_prime += diff_x(gamma)
+                else:
+                    gamma = -phi_i_j + phi_matrix[i+1,j]+ A_x[i+1, j]
+                    I += -cpr_x(gamma)
+                    I_prime += diff_x(gamma)
+                                                              
+                    gamma = phi_i_j - phi_matrix[i-1, j]+ A_x[i,j]
+                    I += cpr_x(gamma)
+                    I_prime += diff_x(gamma)
+                    
+                new_phi = phi_i_j - I / I_prime
+                phi_matrix[i, j] = new_phi
+                delta_phi += np.abs(phi_i_j- new_phi)
+
+        return delta_phi
+    
+
+        
+    def optimization_step(self, optimize_leads=False, temp=0, epsilon=0.45):
         # minimize free energy f(phi) using gradient descent
         # update all phi's in-place
         # phi -> phi - ε f'(phi)
@@ -157,7 +231,6 @@ class network:
         cpr_x = self.cpr_x
         cpr_y = self.cpr_y
 
-        epsilon = 0.25
         delta_phi = 0
 
         for i in range(Nx):
@@ -226,7 +299,7 @@ class network:
     def optimize(self, maxiter=1000, delta_tol=1e-2, optimize_leads=False):
         for i in range(maxiter):
             delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
-            print("i = ", i, ", delta = ", delta)
             if delta < delta_tol:
+                print("i(final) = %d, delta(final) = %.3g" % (i, delta))
                 break
         return delta
