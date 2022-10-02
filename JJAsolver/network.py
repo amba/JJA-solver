@@ -283,7 +283,7 @@ class network:
 
         return delta_phi
     
-    def find_ground_state(self, T_start=0.35, N_max=5000, delta_tol=1e-2,
+    def find_ground_state(self, T_start=0.35, N_max=5000, delta_tol=1e-4,
                           optimize_leads=True):
         # annealing schedule
         for i in range(N_max):
@@ -296,7 +296,7 @@ class network:
             if delta < delta_tol:
                 break
         return self
-    def optimize(self, maxiter=1000, delta_tol=1e-2, optimize_leads=False):
+    def optimize(self, maxiter=1000, delta_tol=1e-4, optimize_leads=False):
         for i in range(maxiter):
             delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
             if delta < delta_tol:

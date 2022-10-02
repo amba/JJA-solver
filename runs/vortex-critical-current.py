@@ -94,8 +94,13 @@ for a1 in a1_vals:
                  'F': F,
                  }
             )
+            if i % 10 == 0:
+                m.plot_currents()
+                plt.show()
             m.add_phase_gradient(sign * d_phi)
             if F < 0.999 * last_F_val:
+                m.plot_currents()
+                plt.show()
                 break
             last_F_val = F
     data_L_of_I.new_block()
