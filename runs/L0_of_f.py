@@ -13,7 +13,7 @@ import time
 
 Nx = 16
 Ny = 16
-#tau = 0
+tau = 0.9
 
 folder = datafolder('L0_of_I')
 
@@ -28,15 +28,15 @@ data_L_of_I = datafile(folder,
     file = "data_L_of_I.dat",
     params = ['Nx', 'Ny',
               #'tau',
-              'frustration', 'I', 'free_energy'],
+              'frustration', 'phi', 'I', 'free_energy'],
 )
 
 
 def cpr_x(gamma):
-    return np.sin(gamma)
+#    return np.sin(gamma)
    # return np.sin(gamma)# + sin2_term * np.sin(2*gamma) + cos_term*np.cos(gamma)
 #    print("cpr_x: tau = ", tau)
-    #return jj_cpr_ballistic(gamma, tau)
+    return jj_cpr_ballistic(gamma, tau)
 
                                             
 #def cpr_y(gamma):
@@ -44,10 +44,10 @@ def cpr_x(gamma):
     #return jj_cpr_ballistic(gamma, tau)
 
 def f_x(gamma):
-    return 1  - np.cos(gamma)
+    #return 1  - np.cos(gamma)
  #   return 1 -np.cos(gamma)# - 0.5 * sin2_term * np.cos(2 * gamma) +\
         #        cos_term * np.sin(gamma)
-#    return jj_free_energy_ballistic(gamma, tau)
+    return jj_free_energy_ballistic(gamma, tau)
 
 #def f_y(gamma):
  #   return 1 -np.cos(gamma)# - 0.5 * sin2_term * np.cos(2 * gamma)
@@ -62,10 +62,10 @@ n = network(
 )
 
 
-frustration_vals = np.linspace(0, 0.5, 51)
+frustration_vals = np.linspace(0, 0.55, 101)
 N_currents = 10
 d_phi = 0.01 / N_currents
-delta_tol = 1e-4
+delta_tol = 1e-2
 for f in frustration_vals:
     print("f = ", f)
     n.reset_network()
@@ -74,9 +74,12 @@ for f in frustration_vals:
     n = n.find_ground_state(N_max=2000, delta_tol=delta_tol)
     print("time to find ground state: ", time.time() - t0)
     print("free energy of ground state = ", n.free_energy())
-
+ #   n.plot_currents()
+  #  plt.show()
     I_vals = []
     F_vals = []
+    phi_vals = []
+    
     t0 = time.time()
     for sign in (+1, -1):
         m = copy.deepcopy(n)
@@ -86,23 +89,26 @@ for f in frustration_vals:
             print("I = ", I)
             F = m.free_energy()
             print("F = ", F)
+            phi = m.phi_r - m.phi_l
             data_L_of_I.log(
                 {'Nx': Nx,
                  'Ny': Ny,
                  #  'tau': tau,
                  'frustration': f,
+                 'phi': phi,
                  'I': I,
                  'free_energy': F
                  }
             )
             I_vals.append(I)
             F_vals.append(F)
+            phi_vals.append(phi)
             m.add_phase_gradient(sign * d_phi)
     print("time for F(I) curve: ", time.time() - t0)
     data_L_of_I.new_block()
-    p = np.polyfit(I_vals, F_vals, 2)
-    L0 = p[0]/2
-    F0 = p[2]
+    p = np.polyfit(phi_vals, I_vals, 1)
+    L0 = 1/p[0]
+    F0 = np.amin(F_vals)
     data_L0.log(
         {'Nx': Nx,
          'Ny': Ny,

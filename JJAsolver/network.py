@@ -16,15 +16,15 @@ def jj_diff_ballistic(gamma, tau):
         np.cos(gamma) / np.sqrt(nom_vals)
 
 class network:
-    def __init__(self, Nx, Ny, *, cpr_x, cpr_y, free_energy_x, free_energy_y):
+    def __init__(self, Nx, Ny, diff_x=None, diff_y=None, *, cpr_x, cpr_y, free_energy_x, free_energy_y):
         self.Nx = Nx
         self.Ny = Ny
         self.cpr_x = cpr_x
         self.cpr_y = cpr_y
         self.free_energy_x = free_energy_x
         self.free_energy_y = free_energy_y
-        # self.diff_x = diff_x
-        # self.diff_y = diff_y
+        self.diff_x = diff_x
+        self.diff_y = diff_y
 
         
         self.island_x_coords, self.island_y_coords = np.meshgrid(np.arange(Nx), np.arange(Ny), indexing="ij")
@@ -166,7 +166,6 @@ class network:
         diff_x = self.diff_x
         diff_y = self.diff_y
         
-        delta_phi = 0
 
         for i in range(Nx):
             for j in range(Ny):
@@ -211,13 +210,12 @@ class network:
                     
                 new_phi = phi_i_j - I / I_prime
                 phi_matrix[i, j] = new_phi
-                delta_phi += np.abs(phi_i_j- new_phi)
-
-        return delta_phi
+                
+        return np.abs(I)
     
 
         
-    def optimization_step(self, optimize_leads=False, temp=0, epsilon=0.45):
+    def optimization_step(self, optimize_leads=False, temp=0, epsilon=0.4):
         # minimize free energy f(phi) using gradient descent
         # update all phi's in-place
         # phi -> phi - ε f'(phi)
@@ -231,7 +229,7 @@ class network:
         cpr_x = self.cpr_x
         cpr_y = self.cpr_y
 
-        delta_phi = 0
+        I_norm = 0
 
         for i in range(Nx):
             for j in range(Ny):
@@ -258,7 +256,7 @@ class network:
                 if temp > 0:
                     new_phi += temp * numpy.random.randn()
                 phi_matrix[i, j] = new_phi
-                delta_phi += np.abs(phi_i_j- new_phi)
+                I_norm += np.abs(f_prime)
         if optimize_leads:
             # left lead
             f_prime = 0
@@ -267,9 +265,8 @@ class network:
             new_phi = self.phi_l - (4 * epsilon / Ny) * f_prime
             if temp > 0:
                 new_phi += temp * numpy.random.randn()
-            delta_phi += np.abs(new_phi - self.phi_l)
             self.phi_l = new_phi
-            
+            I_norm += np.abs(f_prime)
 
             # right lead
             f_prime = 0
@@ -278,25 +275,25 @@ class network:
             new_phi = self.phi_r - (4 * epsilon / Ny) * f_prime
             if temp > 0:
                 new_phi += temp * numpy.random.randn()
-            delta_phi += np.abs(new_phi - self.phi_r)
             self.phi_r = new_phi
-
-        return delta_phi
+            I_norm += np.abs(f_prime)
+        return I_norm
     
     def find_ground_state(self, T_start=0.35, N_max=5000, delta_tol=1e-4,
                           optimize_leads=True):
         # annealing schedule
         for i in range(N_max):
             temp = T_start * (N_max - i) / N_max
-            print("i = ", i, ", delta = ", self.optimization_step(temp=temp, optimize_leads=optimize_leads))
+            delta = self.optimization_step(temp=temp, optimize_leads=optimize_leads)
+            print("temp = %g\ndelta = %g" % (temp, delta))
         # converge
-        for i in range(1000):
+        for i in range(10 * N_max):
             delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
             print("delta = ", delta)
             if delta < delta_tol:
                 break
         return self
-    def optimize(self, maxiter=1000, delta_tol=1e-4, optimize_leads=False):
+    def optimize(self, maxiter=10000, delta_tol=1e-4, optimize_leads=False):
         for i in range(maxiter):
             delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
             if delta < delta_tol:
