@@ -11,15 +11,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-Nx = 10
-Ny = 10
+Nx = 12
+Ny = 12
 tau = 0.01
 
 frustration_vals = np.linspace(0.01, 0.55, 201)
 N_currents = 10
 d_phi = 0.01 / N_currents
 
-delta_tol = d_phi / 10 * Nx * Ny 
+delta_tol = d_phi / 5
 N_annealing=500
 
 folder = datafolder('L0_of_I')
@@ -28,14 +28,14 @@ data_L0 = datafile(folder,
                    file = "data_L0.dat",
                    params = ['Nx', 'Ny',
                              'tau',
-                             'f',  'L0', 'N_vortex'],
+                             'f',  'L0', 'LF', 'N_vortex'],
 )
 
 data_L_of_I = datafile(folder,
     file = "data_L_of_I.dat",
     params = ['Nx', 'Ny',
               'tau',
-              'f', 'phi', 'I', ],
+              'f', 'phi', 'I', 'F'],
 )
 
 
@@ -77,6 +77,7 @@ for f in frustration_vals:
     n.find_ground_state(N_max=N_annealing, delta_tol=delta_tol)
     N_vortex = n.winding_number() / (2 * np.pi)
     I_vals = []
+    F_vals = []
     phi_vals = []
     
     t0 = time.time()
@@ -85,6 +86,7 @@ for f in frustration_vals:
         for i in range(N_currents):
             m.optimize(fix_contacts=True, maxiter=5000, delta_tol=delta_tol)
             I = m.get_current()
+            F = m.free_energy()
             phi = m.phi_matrix[-1,0] - m.phi_matrix[0,0]
             print("I = ", I)
             data_L_of_I.log(
@@ -94,21 +96,26 @@ for f in frustration_vals:
                  'f': f,
                  'phi': phi,
                  'I': I,
+                 'F': F,
                  }
             )
             I_vals.append(I)
+            F_vals.append(F)
             phi_vals.append(phi)
             m.add_phase_gradient(sign * d_phi)
     print("time for F(I) curve: ", time.time() - t0)
     data_L_of_I.new_block()
     p = np.polyfit(phi_vals, I_vals, 1)
     L0 = 1/p[0]
+    p1 = np.polyfit(I_vals, F_vals, 2)
+    LF = 2 * p1[0]
     data_L0.log(
         {'Nx': Nx,
          'Ny': Ny,
          'tau': tau,
          'f': f,
          'L0': L0,
+         'LF': LF,
          'N_vortex': N_vortex
          }
     )
