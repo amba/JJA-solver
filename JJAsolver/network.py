@@ -15,6 +15,13 @@ def jj_diff_ballistic(gamma, tau):
     return 1/4 * tau * np.sin(gamma)**2 / (nom_vals)**(3/2) + \
         np.cos(gamma) / np.sqrt(nom_vals)
 
+def _normalize_phase(phi):
+    phi = np.fmod(phi, 2 * np.pi)
+    phi = np.where(phi < 0, phi + 2 * np.pi, phi)
+    # normalize to (-pi, pi)
+    phi = np.where(phi > np.pi, phi - 2*np.pi, phi)
+    return phi
+
 class network:
     def __init__(self, Nx, Ny, diff_x=None, diff_y=None, *, cpr_x, cpr_y, free_energy_x, free_energy_y):
         self.Nx = Nx
@@ -83,9 +90,9 @@ class network:
         self.phi_r += d_phi * (self.Nx + 1)
         
     def add_vortex(self, x0, y0, vorticity=1):
-        self.phi_matrix += np.arctan2(y0 - self.island_y_coords,
-                                      x0 - self.island_x_coords)
-        self.phi_r += np.pi
+        self.phi_matrix += vorticity * np.arctan2(self.island_y_coords - y0,
+                                                  self.island_x_coords - x0)
+        self.phi_l += vorticity * np.pi
 
 
     def get_gamma_matrices(self):
@@ -118,6 +125,21 @@ class network:
         return np.sum(self.free_energy_x(gamma_x)) + \
             np.sum(self.free_energy_y(gamma_y))
 
+        
+    def winding_number(self):
+        # integrate grad φ around the array
+        phi_matrix = self.phi_matrix
+        rv = 0
+        # bottom edge
+        rv += np.sum(_normalize_phase(phi_matrix[1:,0] - phi_matrix[:-1,0]))
+        # right edge
+        rv += np.sum(_normalize_phase(phi_matrix[-1,1:] - phi_matrix[-1,:-1]))
+        # top edge
+        rv += -np.sum(_normalize_phase(phi_matrix[1:,-1] - phi_matrix[:-1,-1]))
+        # left edge
+        rv += -np.sum(_normalize_phase(phi_matrix[0,1:] - phi_matrix[0,:-1]))
+        return rv
+    
     def plot_phases(self):
         plt.clf()
         m = self.phi_matrix.copy()

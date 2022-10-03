@@ -13,7 +13,7 @@ import time
 
 Nx = 16
 Ny = 16
-tau = 0.99
+tau = 0.01
 
 def cpr_x(gamma):
     return jj_cpr_ballistic(gamma, tau)
@@ -23,8 +23,6 @@ def cpr_x(gamma):
 def f_x(gamma):
     return jj_free_energy_ballistic(gamma, tau)
 
-
-
 n = network(
     Nx, Ny,
     cpr_x=cpr_x,
@@ -33,16 +31,52 @@ n = network(
     free_energy_y = f_x,
 )
 
-n.add_vortex(int((Nx - 1)/2) + 0.5, int((Ny - 1)/2))
-F1 = n.free_energy()
+n.add_vortex(int((Nx - 1)/2) + 0.5, int((Ny - 1)/2), vorticity=1)
+print(n.phi_matrix[7,7]) # pi
+print(n.phi_matrix[8,7]) # 0
 n.plot_currents()
 plt.show()
-
-n.reset_network()
-n.add_vortex(int((Nx - 1)/2) + 0.5, int((Ny - 1)/2) + 0.5)
-n.plot_currents()
+i_vals = range(200)
+F_vals = []
+for i in i_vals:
+    F = n.free_energy()
+    print("i = %d, F = %g" % (i, F))
+    F_vals.append(F)
+    n.optimization_step(optimize_leads=True, epsilon=0.1)
+    n.phi_matrix[7,7] = np.pi
+    n.phi_matrix[8,7] = 0
+    
+plt.plot(i_vals, F_vals)
 plt.show()
-F0 = n.free_energy()
 
-print("F1 = %g, F0 = %g" % (F1, F0))
-print("F1 - F0 = %g" % (F1 - F0))
+i_vals = range(200)
+F_vals = []
+for i in i_vals:
+    F = n.free_energy()
+    print("i = %d, F = %g" % (i, F))
+    F_vals.append(F)
+    n.optimization_step(optimize_leads=True, epsilon=0.45)
+plt.plot(i_vals, F_vals)
+plt.show()
+
+    
+# x_vals = np.linspace(-3, 3, 200)
+
+# tau_vals = (0.01, 0.5, 0.75, 0.9, 0.95, 0.99)
+# for tau in tau_vals:
+
+#     F_vals = []
+
+#     for x in x_vals:
+#         print("tau = %g, x = %g" % (tau, x))
+#         n.reset_network()
+#        # n.add_vortex(int((Nx - 1)/2) + 0.5, int((Ny - 1)/2) + 0.5)
+#         n.add_vortex(int((Nx - 1)/2) + 0.5 +  x, int((Ny - 1)/2) + 0.5, vorticity=1)
+#         F_vals.append(n.free_energy())
+
+#     F_vals = np.array(F_vals)
+#     F_vals -= np.amin(F_vals)
+#     plt.plot(x_vals, F_vals, label="tau = %g" % tau)
+# plt.grid()
+# plt.show()
+

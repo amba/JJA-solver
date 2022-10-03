@@ -11,11 +11,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-Nx = 32
-Ny = 32
-tau = 0.9
+Nx = 20
+Ny = 20
+tau = 0.8
 
-frustration_vals = np.linspace(0, 0.55, 101)
+frustration_vals = np.linspace(0, 0.2, 20)
 N_currents = 10
 d_phi = 0.01 / N_currents
 
@@ -28,7 +28,7 @@ data_L0 = datafile(folder,
                    file = "data_L0.dat",
                    params = ['Nx', 'Ny',
                              'tau',
-                             'f',  'L0'],
+                             'f',  'L0', 'N_vortex'],
 )
 
 data_L_of_I = datafile(folder,
@@ -75,6 +75,7 @@ for f in frustration_vals:
     n.set_frustration(f)
     t0 = time.time()
     n = n.find_ground_state(N_max=N_annealing, delta_tol=delta_tol)
+    N_vortex = n.winding_number() / (2 * np.pi)
     I_vals = []
     phi_vals = []
     
@@ -107,7 +108,8 @@ for f in frustration_vals:
          'Ny': Ny,
          'tau': tau,
          'f': f,
-         'L0': L0
+         'L0': L0,
+         'N_vortex': N_vortex
          }
     )
 
