@@ -11,15 +11,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-Nx = 20
-Ny = 20
-tau = 0.8
+Nx = 10
+Ny = 10
+tau = 0.01
 
-frustration_vals = np.linspace(0, 0.2, 20)
+frustration_vals = np.linspace(0.01, 0.55, 201)
 N_currents = 10
 d_phi = 0.01 / N_currents
 
-delta_tol = d_phi * Nx * Ny 
+delta_tol = d_phi / 10 * Nx * Ny 
 N_annealing=500
 
 folder = datafolder('L0_of_I')
@@ -74,7 +74,7 @@ for f in frustration_vals:
     n.reset_network()
     n.set_frustration(f)
     t0 = time.time()
-    n = n.find_ground_state(N_max=N_annealing, delta_tol=delta_tol)
+    n.find_ground_state(N_max=N_annealing, delta_tol=delta_tol)
     N_vortex = n.winding_number() / (2 * np.pi)
     I_vals = []
     phi_vals = []
@@ -83,10 +83,10 @@ for f in frustration_vals:
     for sign in (+1, -1):
         m = copy.deepcopy(n)
         for i in range(N_currents):
-            m.optimize(optimize_leads=False, maxiter=5000, delta_tol=delta_tol)
+            m.optimize(fix_contacts=True, maxiter=5000, delta_tol=delta_tol)
             I = m.get_current()
+            phi = m.phi_matrix[-1,0] - m.phi_matrix[0,0]
             print("I = ", I)
-            phi = m.phi_r - m.phi_l
             data_L_of_I.log(
                 {'Nx': Nx,
                  'Ny': Ny,

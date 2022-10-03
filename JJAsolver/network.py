@@ -36,79 +36,47 @@ class network:
         
         self.island_x_coords, self.island_y_coords = np.meshgrid(np.arange(Nx), np.arange(Ny), indexing="ij")
         self.phi_matrix = np.zeros((Nx, Ny), dtype=np.float32)
-        self.phi_r = np.float32(0)
-        self.phi_l = np.float32(0)
         self.set_frustration(0)
         
     def reset_network(self):
         self.phi_matrix *= 0
-        self.phi_r *= 0
-        self.phi_l *= 0
         self.set_frustration(0)
 
     def set_random_state(self):
         self.phi_matrix = np.float32(2 * np.pi * numpy.random.rand(self.Nx, self.Ny))
-        self.phi_r = 2 * np.pi * numpy.random.rand()
-        self.phi_l = 2 * np.pi * numpy.random.rand()
         
     def set_frustration(self, f):
         Nx = self.Nx
         Ny = self.Ny
         A_x = np.linspace(0, -(Ny-1) * f, Ny) + (Ny - 1)/2 * f
-        A_x = np.tile(A_x, (Nx + 1, 1))
+        A_x = np.tile(A_x, (Nx - 1, 1))
         A_y = np.linspace(0, (Nx-1) * f, Nx) - (Nx-1)/2 * f
         A_y = np.tile(A_y, (Ny - 1, 1)).T
 
         self.A_x = np.float32(-np.pi * A_x)
         self.A_y = np.float32(-np.pi * A_y)
 
-    def set_current(self, I):
-        Nx = self.Nx
-        Ny = self.Ny
-        j = I / Ny # current per junction
-
-        def f(x):
-            return self.cpr_x(x) - j
-
-        gamma = scipy.optimize.brentq(f, -np.pi/2, np.pi/2, rtol=1e-6, xtol=1e-6)
-        
-        print("gamma = %g pi" % (gamma/ np.pi))
-
-        phi = np.linspace(gamma, Nx * gamma, Nx)
-        phi = np.tile(phi, (Ny, 1)).T
-        phi_r = (Nx + 1) * gamma
-        
-        self.phi_matrix += phi
-        self.phi_r += phi_r
-
     def add_phase_gradient(self, d_phi):
-        # keep phi_l constant
         for i in range(self.Nx):
             for j in range(self.Ny):
                 self.phi_matrix[i,j] += d_phi * (i + 1)
         
-        self.phi_r += d_phi * (self.Nx + 1)
         
     def add_vortex(self, x0, y0, vorticity=1):
         self.phi_matrix += vorticity * np.arctan2(self.island_y_coords - y0,
                                                   self.island_x_coords - x0)
-        self.phi_l += vorticity * np.pi
-
 
     def get_gamma_matrices(self):
         Nx = self.Nx
         Ny = self.Ny
-        gamma_x = np.zeros((Nx + 1, Ny))
+        gamma_x = np.zeros((Nx - 1, Ny))
         gamma_y = np.zeros((Nx, Ny - 1))
         
         gamma_x += self.A_x
         gamma_y += self.A_y
 
         phi_matrix = self.phi_matrix
-        gamma_x[1:-1,:] += phi_matrix[1:,:] - phi_matrix[:-1,:]
-        gamma_x[0,:] += phi_matrix[0,:] - self.phi_l
-        gamma_x[-1,:] += self.phi_r - phi_matrix[-1,:]
-        
+        gamma_x +=  phi_matrix[1:,:] - phi_matrix[:-1,:]
         gamma_y += phi_matrix[:,1:] - phi_matrix[:,:-1]
         return (gamma_x, gamma_y)
         
@@ -154,10 +122,10 @@ class network:
         Ny = self.Ny
         x_currents, y_currents = self.get_current_matrices()
         
-        x_current_xcoords, x_current_ycoords = np.meshgrid(np.arange(Nx+1), np.arange(Ny), indexing="ij")
+        x_current_xcoords, x_current_ycoords = np.meshgrid(np.arange(Nx-1), np.arange(Ny), indexing="ij")
         x_current_xcoords = x_current_xcoords.astype('float64')
         x_current_ycoords = x_current_ycoords.astype('float64')
-        x_current_xcoords -= 0.5
+        x_current_xcoords += 0.5
         y_current_xcoords, y_current_ycoords = np.meshgrid(np.arange(Nx), np.arange(Ny-1), indexing="ij")
         y_current_xcoords = y_current_xcoords.astype('float64')
         y_current_ycoords = y_current_ycoords.astype('float64')
@@ -237,7 +205,7 @@ class network:
     
 
         
-    def optimization_step(self, optimize_leads=False, temp=0, epsilon=0.4):
+    def optimization_step(self, optimize_leads=False, temp=0, fix_contacts=False, epsilon=0.4):
         # minimize free energy f(phi) using gradient descent
         # update all phi's in-place
         # phi -> phi - ε f'(phi)
@@ -254,70 +222,43 @@ class network:
         I_norm = 0
 
         for i in range(Nx):
+            if fix_contacts and (i == 0  or i == Nx - 1):
+                continue
             for j in range(Ny):
                 f_prime = 0
                 phi_i_j = phi_matrix[i,j]
+
+                # x-component
+                if i > 0:
+                    f_prime += cpr_x(phi_i_j - phi_matrix[i-1, j]+ A_x[i-1,j])
+                if i < Nx - 1:
+                    f_prime += -cpr_x(-phi_i_j + phi_matrix[i+1,j]+ A_x[i, j])
+
                 # y-component
                 if j > 0:
                     f_prime += cpr_y(phi_i_j - phi_matrix[i,j-1] + A_y[i, j-1])
                 if j < Ny - 1:
                     f_prime += -cpr_y(-phi_i_j + phi_matrix[i,j+1] + A_y[i,j])
 
-                # x-component
-                if i == 0:
-                    f_prime += cpr_x(phi_i_j - self.phi_l + A_x[0, j])
-                    f_prime += -cpr_x(-phi_i_j + phi_matrix[i+1, j] + A_x[1,j])
-                elif i == Nx - 1:
-                    f_prime += -cpr_x(-phi_i_j + self.phi_r + A_x[i+1, j])
-                    f_prime += cpr_x(phi_i_j - phi_matrix[i-1, j] + A_x[i,j])
-                else:
-                    f_prime += -cpr_x(-phi_i_j + phi_matrix[i+1,j]+ A_x[i+1, j])
-                    f_prime += cpr_x(phi_i_j - phi_matrix[i-1, j]+ A_x[i,j])
                     
                 new_phi = phi_i_j - epsilon * f_prime
                 if temp > 0:
                     new_phi += temp * numpy.random.randn()
                 phi_matrix[i, j] = new_phi
                 I_norm += np.abs(f_prime)
-        if optimize_leads:
-            # left lead
-            f_prime = 0
-            for j in range(Ny):
-                f_prime += -cpr_x(-self.phi_l + phi_matrix[0, j] + A_x[0,j])
-            new_phi = self.phi_l - (4 * epsilon / Ny) * f_prime
-            if temp > 0:
-                new_phi += temp * numpy.random.randn()
-            self.phi_l = new_phi
-            I_norm += np.abs(f_prime)
-
-            # right lead
-            f_prime = 0
-            for j in range(Ny):
-                f_prime += self.cpr_x(self.phi_r - phi_matrix[-1, j] + A_x[-1,j])
-            new_phi = self.phi_r - (4 * epsilon / Ny) * f_prime
-            if temp > 0:
-                new_phi += temp * numpy.random.randn()
-            self.phi_r = new_phi
-            I_norm += np.abs(f_prime)
-        return I_norm
+        return I_norm / (Nx * Ny)
     
-    def find_ground_state(self, T_start=0.35, N_max=5000, delta_tol=1e-4,
-                          optimize_leads=True):
+    def find_ground_state(self, T_start=0.35, N_max=5000, *args, **kwargs):
         # annealing schedule
         for i in range(N_max):
             temp = T_start * (N_max - i) / N_max
-            delta = self.optimization_step(temp=temp, optimize_leads=optimize_leads)
+            delta = self.optimization_step(temp=temp)
             print("temp = %g\ndelta = %g" % (temp, delta))
         # converge
-        for i in range(10 * N_max):
-            delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
-            print("delta = ", delta)
-            if delta < delta_tol:
-                break
-        return self
-    def optimize(self, maxiter=10000, delta_tol=1e-4, optimize_leads=False):
+        return self.optimize(temp = 0, *args, **kwargs)
+    def optimize(self, maxiter=10000, delta_tol=1e-2, *args, **kwargs):
         for i in range(maxiter):
-            delta = self.optimization_step(temp=0, optimize_leads=optimize_leads)
+            delta = self.optimization_step(*args, **kwargs)
             if delta < delta_tol:
                 print("i(final) = %d, delta(final) = %.3g" % (i, delta))
                 break
