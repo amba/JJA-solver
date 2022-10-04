@@ -11,11 +11,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-Nx = 100
+Nx = 16
 Ny = 16
 tau = 0.01
 
-frustration_vals = np.linspace(-0.2, 0.2, 101)
+frustration_vals = np.linspace(-0.5, 0.5, 1001)
 N_currents = 10
 d_phi = 0.01 / N_currents
 
