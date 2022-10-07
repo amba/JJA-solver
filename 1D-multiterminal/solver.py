@@ -57,7 +57,7 @@ def optimization_step(phases, k, flux):
 
 
     # do gradient descent of free energy
-    epsilon = 0.1
+    epsilon = 0.2
     phi2_new = phi2 - epsilon * dF2
     phi3_new = phi3 - epsilon * dF3
 
@@ -67,23 +67,24 @@ def optimization_step(phases, k, flux):
     # use dF to check for convergence
     return np.abs(dF2) + np.abs(dF3)
 
-k_vals = np.linspace(0, 1*np.pi, 200)
+k_vals = np.linspace(0, 3*np.pi, 400)
 I_vals = []
 for k in k_vals:
     print("k = ", k)
-    flux = 4*k
-    phi_vals = np.linspace(0, 2*np.pi, 30)
+    flux = 3*k
+    phi_vals = np.linspace(-np.pi, np.pi, 100)
     Iphi_vals = []
-    for phi in phi_vals:
-        phi_0 = np.array([0, 0, 0, phi])
-        
-        for i in range(100):
-            delta = optimization_step(phi_0, k, flux)
+
+    for phi4 in phi_vals:
+        phi = np.array([0, phi4/2, phi4/2, phi4])
+        for i in range(1000):
+            delta = optimization_step(phi, k, flux)
 #            print("delta = ", delta)
  #           print(phi_0)
             if delta < 1e-3:
+                print("i = ", i)
                 break
-        I = network_current(phi_0, k)
+        I = network_current(phi, k)
         Iphi_vals.append(I)
     I_vals.append(np.amax(Iphi_vals))
 
