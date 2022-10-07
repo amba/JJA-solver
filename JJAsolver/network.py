@@ -256,9 +256,13 @@ class network:
             print("temp = %g\ndelta = %g" % (temp, delta))
         # converge
         return self.optimize(temp = 0, *args, **kwargs)
+
+    
     def optimize(self, maxiter=10000, delta_tol=1e-2, *args, **kwargs):
         for i in range(maxiter):
             delta = self.optimization_step(*args, **kwargs)
+            if i % 100 == 0:
+                print("i = %d, delta = %.3g" % (i, delta))
             if delta < delta_tol:
                 print("i(final) = %d, delta(final) = %.3g" % (i, delta))
                 break

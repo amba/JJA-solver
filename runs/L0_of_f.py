@@ -11,11 +11,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-Nx = 100
-Ny = 16
+Nx = 32
+Ny = 32
 tau = 0.01
 
-frustration_vals = np.linspace(-0.2, 0.2, 101)
+frustration_vals = np.linspace(0.5, 0.2, 101)
 N_currents = 10
 d_phi = 0.01 / N_currents
 
@@ -40,10 +40,10 @@ data_L_of_I = datafile(folder,
 
 
 def cpr_x(gamma):
-#    return np.sin(gamma)
+    return np.sin(gamma)
    # return np.sin(gamma)# + sin2_term * np.sin(2*gamma) + cos_term*np.cos(gamma)
 #    print("cpr_x: tau = ", tau)
-    return jj_cpr_ballistic(gamma, tau)
+  #  return jj_cpr_ballistic(gamma, tau)
 
                                             
 #def cpr_y(gamma):
@@ -51,10 +51,10 @@ def cpr_x(gamma):
     #return jj_cpr_ballistic(gamma, tau)
 
 def f_x(gamma):
-    #return 1  - np.cos(gamma)
+    return 1  - np.cos(gamma)
  #   return 1 -np.cos(gamma)# - 0.5 * sin2_term * np.cos(2 * gamma) +\
         #        cos_term * np.sin(gamma)
-    return jj_free_energy_ballistic(gamma, tau)
+    #return jj_free_energy_ballistic(gamma, tau)
 
 #def f_y(gamma):
  #   return 1 -np.cos(gamma)# - 0.5 * sin2_term * np.cos(2 * gamma)
@@ -74,7 +74,9 @@ for f in frustration_vals:
     n.reset_network()
     n.set_frustration(f)
     t0 = time.time()
-    n.find_ground_state(N_max=N_annealing, delta_tol=delta_tol)
+    n.find_ground_state(temp=0.1, N_max=N_annealing, delta_tol=delta_tol, maxiter=1000)
+    n.plot_currents()
+    plt.show()
     N_vortex = n.winding_number() / (2 * np.pi)
     I_vals = []
     F_vals = []
@@ -84,7 +86,7 @@ for f in frustration_vals:
     for sign in (+1, -1):
         m = copy.deepcopy(n)
         for i in range(N_currents):
-            m.optimize(fix_contacts=True, maxiter=5000, delta_tol=delta_tol)
+            m.optimize(fix_contacts=True, maxiter=1000, delta_tol=delta_tol)
             I = m.get_current()
             F = m.free_energy()
             phi = m.phi_matrix[-1,0] - m.phi_matrix[0,0]
