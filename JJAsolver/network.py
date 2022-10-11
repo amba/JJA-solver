@@ -93,7 +93,6 @@ class network:
         return np.sum(self.free_energy_x(gamma_x)) + \
             np.sum(self.free_energy_y(gamma_y))
 
-        
     def winding_number(self):
         # integrate grad φ around the array
         phi_matrix = self.phi_matrix
