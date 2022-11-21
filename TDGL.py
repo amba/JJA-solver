@@ -35,10 +35,10 @@ np.set_printoptions(linewidth=200)
 
 # A = -laplace
 
-N = 100 # x-axis
+N = 200 # x-axis
 M = 200 # y-axis
 
-conductivity = 1
+conductivity = 10
 #                    y ->
 # matrix: a_00 a_01 a_02 ...
 #         a_10 a_11 a_12 ...
@@ -63,22 +63,11 @@ y_edge = 5
 
 j = 0.5
 
-phi_l = j / conductivity * 2 * x_edge
-
-# potential_vector_linear_part = np.zeros((N, M))
-# for i in range(N):
-#     potential_vector_linear_part[i,:] = phi_l * (1 - i/N)
-# potential_vector_linear_part = matrix_to_vector(potential_vector_linear_part)
 potential_vector = np.zeros((N*M))
-# potential_vector += potential_vector_linear_part
 
 
 order_param_matrix = 0.1 * numpy.random.rand(N, M) + 0.1j * numpy.random.rand(N, M)
-# for i in range(N):
-#     for j in range(M):
-#         order_param_matrix[i,j] = 0.01 # np.exp(1j * np.arctan2(j-M/2, i-N/2))
 
-order_param_matrix[0:x_edge,:] = 0
 order_param_matrix[-x_edge:,:] = 0
 order_param_matrix[:,0:y_edge] = 0
 order_param_matrix[:,-y_edge:] = 0
@@ -86,16 +75,38 @@ order_param_matrix[:,-y_edge:] = 0
 order_param_vector = matrix_to_vector(order_param_matrix)
 
 
-div_I_SC = np.zeros((N * M)) 
-gamma_matrix = -np.ones((N, M))
-gamma_matrix[x_edge:-x_edge,y_edge:-y_edge] = 1
+div_I_SC = np.zeros((N * M))
+gamma = 0.1
+gamma_matrix = -gamma * np.ones((N, M))
+gamma_matrix[x_edge:-x_edge,y_edge:-y_edge] = gamma
 
-#gamma_matrix += 0.2*numpy.random.rand(N, M) - 0.1
-#gamma_matrix[int(N/2),:] -= 0.5
-gamma_matrix[int(N/2),0:3*y_edge] = -1
-gamma_matrix[int(N/2)+1,0:3*y_edge] = -1
-gamma_matrix[int(N/2),-3*y_edge:] = -1
-gamma_matrix[int(N/2)+1,-3*y_edge:] = -1
+#gamma_matrix[int(N/2),int(M/2)] = -3*gamma
+for i in range(N):
+    for j in range(M):
+        order_param_matrix[i,j] =  gamma * np.exp(1j * np.arctan2(j-M/2, i-N/2))
+
+
+order_param_matrix[0:x_edge,:] = 0
+
+#gamma_matrix += gamma/10 *numpy.random.rand(N, M) - 0.1
+
+
+# for i in range(N):
+#     for j in range(M):
+#         if i % 20 == 0 or j % 20 == 0:
+#             gamma_matrix[i,j] -= 5
+
+for i in range(N):
+    for j in range(M):
+        if i < int(N/2) and (i - N/2)**2 + j**2 < (4*y_edge)**2:
+            gamma_matrix[i,j] = -gamma
+        if i < int(N/2) and (i - N/2)**2 + (M-j)**2 < (4*y_edge)**2:
+            gamma_matrix[i,j] = -gamma
+            
+# gamma_matrix[int(N/2),0:3*y_edge] = -1
+# gamma_matrix[int(N/2)+1,0:3*y_edge] = -1
+# gamma_matrix[int(N/2),-3*y_edge:] = -1
+# gamma_matrix[int(N/2)+1,-3*y_edge:] = -1
 # choose gamma(x,y) > 0 for superconducting region and
 #        gamma(x,y) < 0 for normal regions
 
@@ -140,30 +151,33 @@ for i in range(N-1):
     
 print("converting to csr format")
 A = scipy.sparse.csr_matrix(A)
-print(A.toarray())
-print(A.__class__)
 
-def time_step(delta_t, phi):
+grad_x = scipy.sparse.lil_matrix((N*M, N*M))
+for i in range(M * (N-1)):
+    grad_x[i, i+M] = 1
+    grad_x[i+M, i] = -1
+grad_x = scipy.sparse.csr_matrix(grad_x)
+
+def time_step(phi):
     global order_param_vector, A, potential_vector, div_I_SC, gamma_vector
-
+    delta_t = 0.02/ gamma
     t0 = time.time()
     
     order_param_vector -= delta_t * 1j * potential_vector * order_param_vector
     order_param_vector += delta_t * -A.dot(order_param_vector)
-    order_param_vector += delta_t * gamma_vector  * order_param_vector
-    order_param_vector += delta_t * -np.abs(order_param_vector)**2 * order_param_vector
-    div_I_SC = 1/conductivity * np.imag(np.conjugate(order_param_vector) * -A.dot(order_param_vector))
+    order_param_vector += delta_t * order_param_vector * (gamma_vector - np.abs(order_param_vector)**2)
+    div_I_SC = -1/conductivity * np.imag(np.conjugate(order_param_vector) * A.dot(order_param_vector))
     
     for i in range(N):
         potential_vector[i*M:(i+1)*M] -= phi*(i-N/2) / N
     x, info = scipy.sparse.linalg.cg(A, -div_I_SC, x0=potential_vector, maxiter=10)
-    print("info = ", info)
+   # print("info = ", info)
     t1 = time.time()
     potential_vector = x
     for i in range(N):
         potential_vector[i*M:(i+1)*M] += phi*(i-N/2) / N
     
-    print("t = ", t1 - t0)
+#    print("t = ", t1 - t0)
 
 def currents():
     global potential_vector, order_param_vector
@@ -175,25 +189,26 @@ def currents():
     Iy_S = np.imag(np.conjugate(phi_matrix) * np.gradient(phi_matrix, axis=1))
     return Ix_N, Iy_N, Ix_S, Iy_S
 
-phi = 8
-for i in range(N):
-    potential_vector[i*M:(i+1)*M] += phi*(i-N/2) / N
-for i in range(10000):
+phi = 0.1
+for i in range(1000000):
+   # phi += 0.00001
+    #print("phi = ", phi)
     phi_matrix = vector_to_matrix(order_param_vector)
     potential_matrix = vector_to_matrix(potential_vector)
-    print("i = ", i)
-    if i % 10 == 0:
+    print("|Φ| = ", np.abs(phi_matrix[int(N/2),int(M/2)]))
+ #   print("i = ", i)
+    if i % 50  == 0:
         Ix_N, Iy_N, Ix_S, Iy_S = currents()
         
         print("running imshow")
         #plt.imshow(potential_matrix)
         plt.clf()
         #plt.plot(range(N), np.angle(phi_matrix[:,int(M/2)]) / np.pi)
-        #plt.plot(range(N), np.abs(phi_matrix[:,int(M/2)]))
+       # plt.plot(range(N), np.abs(phi_matrix[:,int(M/2)]))
         plt.imshow(np.abs(phi_matrix))
         #plt.imshow(np.sqrt((Ix_N)**2 + (Iy_N)**2))
         #plt.imshow(np.sqrt((Ix_N + Ix_S)**2 + (Iy_N + Iy_S)**2))
         #plt.imshow(gamma_matrix)
-        plt.pause(0.1)
-    time_step(0.1, phi)
+        plt.pause(0.01)
+    time_step(phi)
 
