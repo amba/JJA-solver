@@ -39,15 +39,15 @@ np.set_printoptions(linewidth=200)
 
 
 
-N = 30 # x-axis
-M = 30 # y-axis
+N = 100 # x-axis
+M = 32 # y-axis
  
 #                   <- M islands -> 
 # matrix: a_00 a_01 a_02 ...
 #         a_10 a_11 a_12 ...
 #         ...
 #   
-#         a_(M-1)0 ...     a_(N-1)(M-1)
+#         a_(N-1)0 ...     a_(N-1)(M-1)
 
 # vector: a_00, a_01, a_02, ..., a_0(M-1), a_10, a_11, a_12, ..., a_(N-1)0, ..., a_(N-1)(M-1), phi_r
 
@@ -111,16 +111,55 @@ A = scipy.sparse.csr_matrix(A)
 phi_vector = 2 * np.pi * np.random.rand(N*M + 1)
 rhs = np.zeros((N*M + 1)) 
 phi_dot = np.zeros((N*M + 1))
+I_x_matrix = np.zeros((N+1, M))
+I_y_matrix = np.zeros((N, M-1))
 
 def plot_phi_matrix():
     m, phi_r = vector_to_matrix(phi_vector)
     plt.imshow(_normalize_phase(m))
-    
+
+def plot_currents():
+    global I_x_matrix, I_y_matrix
+
+    island_x_coords, island_y_coords = np.meshgrid(np.arange(N), np.arange(M), indexing="ij")
+    x_current_xcoords, x_current_ycoords = np.meshgrid(np.arange(N+1), np.arange(M), indexing="ij")
+    x_current_xcoords = x_current_xcoords.astype('float64')
+    x_current_ycoords = x_current_ycoords.astype('float64')
+    x_current_xcoords += -0.5
+    y_current_xcoords, y_current_ycoords = np.meshgrid(np.arange(N), np.arange(M-1), indexing="ij")
+    y_current_xcoords = y_current_xcoords.astype('float64')
+    y_current_ycoords = y_current_ycoords.astype('float64')
+    y_current_ycoords += 0.5
+    plt.clf()
+    plt.quiver(x_current_xcoords, x_current_ycoords,
+               I_x_matrix, np.zeros(I_x_matrix.shape),
+               pivot='mid', units='width', scale=5*N, width=1/(30*N))
+    plt.quiver(y_current_xcoords, y_current_ycoords,
+               np.zeros(I_y_matrix.shape), I_y_matrix,
+               pivot='mid', units='width', scale=5*N, width=1/(30*N))
+    plt.scatter(island_x_coords, island_y_coords, marker='s', c='b', s=5)
+
+def plot_flux():
+    plt.clf()
+    global I_x_matrix, I_y_matrix
+    m = np.zeros((N - 1, M - 1))
+    for i in range(N - 1):
+        for j in range(M - 1):
+            m[i,j] = I_x_matrix[i+1, j] - I_x_matrix[i+1,j+1]  + I_y_matrix[i+1,j] - I_y_matrix[i,j]
+            
+    m /= 4
+    m = np.flip(m, axis=1)
+    m = np.swapaxes(m, 0, 1)
+
+    plt.imshow(m, aspect='equal', cmap='gray')
+    plt.colorbar(format="%.1f", label='flux')
 def update_rhs(I, frustration):
     global phi_vector
     global rhs
     # rhs_i = - sum_j sin(φ_j - φ_i)
     rhs *= 0
+    print("I = ", I)
+    print("frustration = ", frustration)
     for i in range(N):
         for j in range(M):
             A = 2*np.pi * frustration * (j - M/2)
@@ -148,15 +187,32 @@ def update_rhs(I, frustration):
     rhs[-1] = I
     
     for j in range(M):
-        rhs[-1] += np.sin(phi_vector[(N-1)*M + j] - phi_r)
+        rhs[-1] += np.sin(phi_vector[(N-1)*M + j] - phi_r - 2*np.pi*frustration*(j-M/2))
     
-def current_matrix():
-    phi_matrix, phi_r = vector_to_matrix(phi_vector)
-    phi_dot_matrix, phi_r = vector_to_matrix(phi_dot)
-    
-    
-    # 
-    
+def update_current():
+    global phi_vector, phi_dot, I_x_matrix, I_y_matrix
+
+    phi_matrix, phi_right_lead = vector_to_matrix(phi_vector)
+    phi_dot_matrix, phi_right_lead = vector_to_matrix(phi_dot)
+    # I_x
+    for i in range(N+1):
+        for j in range(M):
+            A = 2*np.pi * frustration * (j - M/2)
+            if i == 0:
+                phi_l = 0
+            else:
+                phi_l = phi_matrix[i-1, j]
+            if i == N:
+                phi = phi_right_lead
+            else:
+                phi = phi_matrix[i, j]
+                
+            I_x_matrix[i,j] = np.sin(phi - phi_l + A)
+    # I_y
+    for i in range(N):
+        for j in range(M-1):
+            I_y_matrix[i,j] = np.sin(phi_matrix[i,j+1] - phi_matrix[i,j])
+        
 def time_step(I, tau, frustration):
     global phi_vector
     global rhs
@@ -176,15 +232,17 @@ for i in range(100000):
     print(i)
     i_vals.append(i)
     phi_r_vals.append(phi_vector[-1])
-    I += 0.001
+    #I += 0.001
     I_vals.append(I)
     tau = 0.1
-    frustration = 0.03
-    time_step(I, tau, frustration)
-    if i % 500 == 5:
+    frustration = 0.5
+    time_step(M/10 * 2, tau, frustration)
+    if i % 100 == 5:
         plt.clf()
         #plt.plot(range(N), phi_vector[:N*M:M])
-        plt.plot(I_vals, np.gradient(np.array(phi_r_vals)))
-
+        update_current()
+        plot_flux()
+#        plot_currents()
+       # plt.show()
         #plot_phi_matrix()
         plt.pause(0.1)
