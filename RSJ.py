@@ -40,7 +40,7 @@ np.set_printoptions(linewidth=200)
 
 
 N = 100 # x-axis
-M = 32 # y-axis
+M = 100 # y-axis
  
 #                   <- M islands -> 
 # matrix: a_00 a_01 a_02 ...
@@ -62,7 +62,8 @@ def _normalize_phase(phi):
 
 # lattice constant = 1
 def vector_to_matrix(x):
-    return np.reshape(x[:N*M], (N,M), order='C'), x[-1]
+    y = x.copy()
+    return np.reshape(y[:N*M], (N,M), order='C'), y[-1]
 
     
 print("setting up sparse matrix")
@@ -193,25 +194,29 @@ def update_current():
     global phi_vector, phi_dot, I_x_matrix, I_y_matrix
 
     phi_matrix, phi_right_lead = vector_to_matrix(phi_vector)
-    phi_dot_matrix, phi_right_lead = vector_to_matrix(phi_dot)
+    phi_dot_matrix, phi_dot_right_lead = vector_to_matrix(phi_dot)
     # I_x
     for i in range(N+1):
         for j in range(M):
             A = 2*np.pi * frustration * (j - M/2)
             if i == 0:
                 phi_l = 0
+                d_phi_l = 0
             else:
                 phi_l = phi_matrix[i-1, j]
+                d_phi_l = phi_dot_matrix[i-1, j]
             if i == N:
                 phi = phi_right_lead
+                d_phi = phi_dot_right_lead
             else:
                 phi = phi_matrix[i, j]
+                d_phi = phi_dot_matrix[i,j]
                 
-            I_x_matrix[i,j] = np.sin(phi - phi_l + A)
+            I_x_matrix[i,j] = np.sin(phi - phi_l + A) + (d_phi - d_phi_l)
     # I_y
     for i in range(N):
         for j in range(M-1):
-            I_y_matrix[i,j] = np.sin(phi_matrix[i,j+1] - phi_matrix[i,j])
+            I_y_matrix[i,j] = np.sin(phi_matrix[i,j+1] - phi_matrix[i,j]) + (phi_dot_matrix[i, j+1] - phi_dot_matrix[i, j+1])
         
 def time_step(I, tau, frustration):
     global phi_vector
@@ -235,14 +240,14 @@ for i in range(100000):
     #I += 0.001
     I_vals.append(I)
     tau = 0.1
-    frustration = 0.5
-    time_step(M/10 * 2, tau, frustration)
+    frustration = 0.48
+    time_step(2*M/10, tau, frustration)
     if i % 100 == 5:
         plt.clf()
         #plt.plot(range(N), phi_vector[:N*M:M])
         update_current()
         plot_flux()
-#        plot_currents()
-       # plt.show()
-        #plot_phi_matrix()
-        plt.pause(0.1)
+        plt.savefig("/tmp/fig_f=%g_N=%d_M=%d_%06d.png" % (frustration, N, M, i))
+        # plot_currents()
+        # plt.show()
+        # plot_phi_matrix()
