@@ -39,8 +39,8 @@ np.set_printoptions(linewidth=200)
 
 
 
-N = 100 # x-axis
-M = 100 # y-axis
+N = 50 # x-axis
+M = 50 # y-axis
  
 #                   <- M islands -> 
 # matrix: a_00 a_01 a_02 ...
@@ -152,9 +152,10 @@ def plot_flux():
     m = np.flip(m, axis=1)
     m = np.swapaxes(m, 0, 1)
 
-    plt.imshow(m, aspect='equal', cmap='gray')
+    plt.imshow(m, aspect='equal', cmap='gray', vmin=-1, vmax=1)
     plt.colorbar(format="%.1f", label='flux')
-def update_rhs(I, frustration):
+    
+def update_rhs(I, frustration=0, temp=0):
     global phi_vector
     global rhs
     # rhs_i = - sum_j sin(φ_j - φ_i)
@@ -186,6 +187,7 @@ def update_rhs(I, frustration):
 
     phi_r = phi_vector[-1]
     rhs[-1] = I
+    rhs[:-1] += T * numpy.random.normal(size=(N*M))
     
     for j in range(M):
         rhs[-1] += np.sin(phi_vector[(N-1)*M + j] - phi_r - 2*np.pi*frustration*(j-M/2))
@@ -218,36 +220,42 @@ def update_current():
         for j in range(M-1):
             I_y_matrix[i,j] = np.sin(phi_matrix[i,j+1] - phi_matrix[i,j]) + (phi_dot_matrix[i, j+1] - phi_dot_matrix[i, j+1])
         
-def time_step(I, tau, frustration):
+def time_step(I, tau, frustration=0, temp=0):
     global phi_vector
     global rhs
     global phi_dot
-    
-    update_rhs(I, frustration)
+    t0 = time.time()
+    update_rhs(I, frustration=frustration, temp=T)
+    t1 = time.time()
     phi_dot, info = scipy.sparse.linalg.cg(A, rhs, x0=phi_dot)
+    t2 = time.time()
+    print("update_rhs: ", t1 - t0)
+    print("solve A*x = b: ", t2 - t0)
     phi_vector += tau * phi_dot
 
 
 i_vals = []
 phi_r_vals = []
 I_vals = []
-
-I = 0
-for i in range(100000):
+T = 0
+max_i = 200000
+for i in range(max_i):
     print(i)
     i_vals.append(i)
     phi_r_vals.append(phi_vector[-1])
     #I += 0.001
-    I_vals.append(I)
     tau = 0.1
-    frustration = 0.48
-    time_step(2*M/10, tau, frustration)
-    if i % 100 == 5:
+    frustration = 0.333 + 0.03
+    T = 0
+    time_step(2 * M/10, tau, frustration=frustration, temp=T)
+    if i % 50 == 5:
         plt.clf()
         #plt.plot(range(N), phi_vector[:N*M:M])
         update_current()
         plot_flux()
-        plt.savefig("/tmp/fig_f=%g_N=%d_M=%d_%06d.png" % (frustration, N, M, i))
+        #plt.savefig("/tmp/fig_f=%g_N=%d_M=%d_%06d.png" % (frustration, N, M, i))
         # plot_currents()
-        # plt.show()
+        plt.pause(0.01)
         # plot_phi_matrix()
+
+plt.show()
